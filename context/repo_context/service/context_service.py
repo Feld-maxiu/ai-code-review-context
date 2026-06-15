@@ -163,6 +163,65 @@ class ContextService:
             "source": content,
         }
 
+    def list_repo_files(
+        self,
+        include_tests: bool = True,
+        file_type: str | None = None,
+    ) -> dict[str, Any]:
+        """返回索引中已扫描文件清单，供下游 agent 做全量扫描调度。"""
+        files = self.store.list_code_files(self.repo_id)
+        if not include_tests:
+            files = [item for item in files if not item.is_test]
+        if file_type is not None:
+            files = [item for item in files if item.file_type == file_type]
+
+        return {
+            "repo_id": self.repo_id,
+            "total": len(files),
+            "files": [
+                {
+                    "file_path": item.file_path,
+                    "file_type": item.file_type,
+                    "language": item.language,
+                    "line_count": item.line_count,
+                    "is_test": item.is_test,
+                }
+                for item in files
+            ],
+        }
+
+    def get_file_content(
+        self,
+        file_path: str,
+        task_id: str | None = None,
+        review_dimension: str | None = None,
+        record_usage: bool = True,
+    ) -> dict[str, Any]:
+        """读取仓库内完整文件内容，复用路径边界校验避免访问仓库外文件。"""
+        source_path = self._resolve_repo_file(file_path)
+        content = source_path.read_text(encoding="utf-8")
+        line_count = len(content.splitlines())
+        normalized_file_path = self._normalize_file_path(file_path)
+        if record_usage:
+            self._record_usage(
+                tool_name="get_file_content",
+                task_id=task_id,
+                review_dimension=review_dimension,
+                file_path=normalized_file_path,
+                target_type="file",
+                target_name=normalized_file_path,
+                start_line=1,
+                end_line=line_count,
+                lines_returned=line_count,
+            )
+        return {
+            "file_path": normalized_file_path,
+            "line_count": line_count,
+            "content": content,
+            # 兼容下游已有 source 字段读取习惯。
+            "source": content,
+        }
+
     def get_callees(
         self,
         node_id: str | None = None,

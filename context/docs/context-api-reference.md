@@ -16,7 +16,9 @@ GET  /context/tasks?repo_id={repo_id}&review_dimension={review_dimension}
 GET  /context/task-package/{task_id}
 GET  /context/tasks/{task_id}/graph-slice
 POST /context/related-context
+GET  /context/repo-files
 GET  /context/file-snippet
+GET  /context/file-content
 GET  /context/node-detail
 GET  /context/callees
 GET  /context/callers
@@ -203,6 +205,39 @@ GET /context/tasks/task_route_post_login/graph-slice?repo_id=sample-repo&depth=2
 
 ## 5. 精确上下文工具
 
+### GET /context/repo-files
+
+返回当前 `repo_id` 已完成索引的文件清单，供下游 agent 做全量扫描调度，例如运行 ruff、pylint 或自定义文件级检查。
+
+参数：
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- | --- |
+| `repo_id` | Query | string | 是 | 仓库 ID |
+| `include_tests` | Query | boolean | 否 | 是否包含测试文件，默认 `true` |
+| `file_type` | Query | string | 否 | 按文件类型过滤，例如 `python` |
+
+示例：
+```http
+GET /context/repo-files?repo_id=sample-repo&include_tests=true
+```
+
+返回重点：
+```json
+{
+  "repo_id": "sample-repo",
+  "total": 2,
+  "files": [
+    {
+      "file_path": "app/api/auth.py",
+      "file_type": "python",
+      "language": "python",
+      "line_count": 13,
+      "is_test": false
+    }
+  ]
+}
+```
+
 ### GET /context/file-snippet
 
 读取源码片段。路径穿越如 `../../secret.txt` 会被拒绝。
@@ -211,6 +246,33 @@ GET /context/tasks/task_route_post_login/graph-slice?repo_id=sample-repo&depth=2
 
 ```http
 GET /context/file-snippet?repo_id=sample-repo&file_path=app/api/auth.py&start_line=1&end_line=80&task_id=task_route_post_login&review_dimension=security
+```
+
+### GET /context/file-content
+
+读取仓库内某个文件的完整内容，适合下游 agent 对单文件运行 ruff、pylint、bandit 或其它静态检查。该接口仍然只允许读取仓库目录内的相对路径，`../../secret.txt` 这类路径穿越会返回 `400`。
+
+参数：
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- | --- |
+| `repo_id` | Query | string | 是 | 仓库 ID |
+| `file_path` | Query | string | 是 | 仓库内相对路径 |
+| `task_id` | Query | string | 否 | 当前任务 ID，用于 usage 记录 |
+| `review_dimension` | Query | enum | 否 | 当前评审维度，用于 usage 记录 |
+
+示例：
+```http
+GET /context/file-content?repo_id=sample-repo&file_path=app/api/auth.py&task_id=task_route_post_login&review_dimension=security
+```
+
+返回重点：
+```json
+{
+  "file_path": "app/api/auth.py",
+  "line_count": 13,
+  "content": "...完整文件内容...",
+  "source": "...完整文件内容..."
+}
 ```
 
 ### GET /context/node-detail

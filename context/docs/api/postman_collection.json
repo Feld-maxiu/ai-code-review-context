@@ -226,6 +226,34 @@
           }
         },
         {
+          "name": "Get Repo Files",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/context/repo-files?repo_id={{repo_id}}&include_tests=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "repo-files"
+              ],
+              "query": [
+                {
+                  "key": "repo_id",
+                  "value": "{{repo_id}}"
+                },
+                {
+                  "key": "include_tests",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "List indexed repository files for downstream full-file scans."
+          }
+        },
+        {
           "name": "Get File Snippet",
           "request": {
             "method": "GET",
@@ -267,6 +295,42 @@
               ]
             },
             "description": ""
+          }
+        },
+        {
+          "name": "Get File Content",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/context/file-content?repo_id={{repo_id}}&file_path=app/api/auth.py&task_id={{task_id}}&review_dimension={{review_dimension}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "file-content"
+              ],
+              "query": [
+                {
+                  "key": "repo_id",
+                  "value": "{{repo_id}}"
+                },
+                {
+                  "key": "file_path",
+                  "value": "app/api/auth.py"
+                },
+                {
+                  "key": "task_id",
+                  "value": "{{task_id}}"
+                },
+                {
+                  "key": "review_dimension",
+                  "value": "{{review_dimension}}"
+                }
+              ]
+            },
+            "description": "Read complete file content for downstream static analysis tools."
           }
         },
         {

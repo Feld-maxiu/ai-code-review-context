@@ -51,6 +51,76 @@ def test_context_api_file_snippet_and_path_traversal(tmp_path: Path) -> None:
     assert blocked.status_code == 400
 
 
+def test_context_api_repo_files_lists_scanned_files(tmp_path: Path) -> None:
+    client = _indexed_client(tmp_path, "api-context-repo-files")
+
+    response = client.get(
+        "/context/repo-files",
+        params={"repo_id": "api-context-repo-files"},
+    )
+    without_tests = client.get(
+        "/context/repo-files",
+        params={"repo_id": "api-context-repo-files", "include_tests": False},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    file_paths = [item["file_path"] for item in data["files"]]
+    assert data["repo_id"] == "api-context-repo-files"
+    assert data["total"] == len(data["files"])
+    assert "app/api/auth.py" in file_paths
+    assert "app/services/user_service.py" in file_paths
+    assert "tests/test_auth.py" in file_paths
+    assert all(
+        {"file_path", "file_type", "language", "line_count", "is_test"} <= set(item)
+        for item in data["files"]
+    )
+
+    assert without_tests.status_code == 200
+    non_test_paths = [item["file_path"] for item in without_tests.json()["files"]]
+    assert "tests/test_auth.py" not in non_test_paths
+    assert all(not item["is_test"] for item in without_tests.json()["files"])
+
+
+def test_context_api_file_content_returns_full_file_and_records_usage(tmp_path: Path) -> None:
+    client = _indexed_client(tmp_path, "api-context-file-content")
+
+    response = client.get(
+        "/context/file-content",
+        params={
+            "repo_id": "api-context-file-content",
+            "file_path": "app/api/auth.py",
+            "task_id": "task_route_post_login",
+            "review_dimension": "security",
+        },
+    )
+    blocked = client.get(
+        "/context/file-content",
+        params={
+            "repo_id": "api-context-file-content",
+            "file_path": "../../secret.txt",
+        },
+    )
+    coverage = client.get("/demo/api-context-file-content/coverage").json()[
+        "usage_coverage_report"
+    ]
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["file_path"] == "app/api/auth.py"
+    assert data["line_count"] >= 1
+    assert data["content"] == data["source"]
+    assert "def login" in data["content"]
+    assert "token_type" in data["content"]
+    assert blocked.status_code == 400
+    assert any(
+        item["tool_name"] == "get_file_content"
+        and item["file_path"] == "app/api/auth.py"
+        and item["target_type"] == "file"
+        for item in coverage["usage_records"]
+    )
+
+
 def test_context_api_node_detail_callees_and_usage(tmp_path: Path) -> None:
     client = _indexed_client(tmp_path, "api-context-node")
 

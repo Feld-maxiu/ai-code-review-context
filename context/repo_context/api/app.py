@@ -145,6 +145,37 @@ def context_file_snippet(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.get("/context/repo-files")
+def context_repo_files(
+    repo_id: str,
+    include_tests: bool = True,
+    file_type: str | None = None,
+) -> dict[str, Any]:
+    service = _load_demo_services(repo_id)
+    return service["context_service"].list_repo_files(
+        include_tests=include_tests,
+        file_type=file_type,
+    )
+
+
+@app.get("/context/file-content")
+def context_file_content(
+    repo_id: str,
+    file_path: str,
+    task_id: str | None = None,
+    review_dimension: ReviewDimension | None = None,
+) -> dict[str, Any]:
+    service = _load_demo_services(repo_id)
+    try:
+        return service["context_service"].get_file_content(
+            file_path=file_path,
+            task_id=task_id,
+            review_dimension=_dimension_value(review_dimension),
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.get("/context/node-detail")
 def context_node_detail(
     repo_id: str,

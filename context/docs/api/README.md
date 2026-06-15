@@ -53,7 +53,9 @@ GET  /context/tasks?repo_id={repo_id}&review_dimension={review_dimension}
 GET  /context/task-package/{task_id}
 GET  /context/tasks/{task_id}/graph-slice
 POST /context/related-context
+GET  /context/repo-files
 GET  /context/file-snippet
+GET  /context/file-content
 GET  /context/node-detail
 GET  /context/callees
 GET  /context/callers

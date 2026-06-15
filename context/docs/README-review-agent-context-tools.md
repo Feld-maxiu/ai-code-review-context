@@ -24,7 +24,9 @@
 | **必须调用** | `POST /context/task-feedback` | 每个评审任务完成、阻塞或跳过时调用 | 反馈任务状态、上下文是否足够、是否需要补充上下文 |
 | **必须优先支持** | `GET /context/tasks/{task_id}/graph-slice` | 阅读任务包后优先调用 | 获取 task-local graph slice 总览，不暴露完整仓库图 |
 | **必须优先支持** | `POST /context/related-context` | 看过局部图后仍需上下文时调用 | 获取任务相关的源码片段、符号和局部调用图 |
+| **必须支持** | `GET /context/repo-files` | 需要全量文件级扫描时调用 | 获取当前索引中的仓库文件路径清单 |
 | **必须支持** | `GET /context/file-snippet` | 需要精确源码时调用 | 按文件路径和行号读取源码片段 |
+| **必须支持** | `GET /context/file-content` | 需要对单文件运行静态检查时调用 | 读取仓库内完整文件内容 |
 | **必须支持** | `GET /context/node-detail` | 需要理解函数/类时调用 | 获取符号代码、位置、调用者和被调用者 |
 | **按需支持** | `GET /context/callees` | 需要向下追踪调用链时调用 | 查询当前符号调用了哪些符号 |
 | **按需支持** | `GET /context/callers` | 需要向上追踪入口时调用 | 查询哪些符号调用了当前符号 |
@@ -149,7 +151,9 @@ Content-Type: application/json
 | `GET /context/task-package/{task_id}` | Path + Query | `task_id`, `repo_id` | `target`, `initial_context`, `available_tools`, `context_policy` |
 | `GET /context/tasks/{task_id}/graph-slice` | Path + Query | `task_id`, `repo_id`, `depth` | `nodes`, `edges`, `boundary_nodes`, `truncated`, `target`, `depth` |
 | `POST /context/related-context` | Body | `repo_id`, `task_id`, `target_file`, `review_dimension`, `tags`, `max_depth`, `max_files` | `snippets`, `related_symbols`, `call_graph_slice` |
+| `GET /context/repo-files` | Query | `repo_id`, `include_tests`, `file_type` | `files`, `total` |
 | `GET /context/file-snippet` | Query | `repo_id`, `file_path`, `start_line`, `end_line`, `task_id`, `review_dimension` | `content`, `start_line`, `end_line` |
+| `GET /context/file-content` | Query | `repo_id`, `file_path`, `task_id`, `review_dimension` | `content`, `source`, `line_count` |
 | `GET /context/node-detail` | Query | `repo_id`, `symbol_name`, `task_id`, `review_dimension` | `code`, `file_path`, `callers`, `callees` |
 | `GET /context/callees` | Query | `repo_id`, `symbol_name`, `depth`, `task_id`, `review_dimension` | 被调用符号列表、局部调用边 |
 | `GET /context/callers` | Query | `repo_id`, `symbol_name`, `depth`, `task_id`, `review_dimension` | 调用者符号列表、局部调用边 |
@@ -372,7 +376,60 @@ Content-Type: application/json
 
 ---
 
-## 6. 源码片段工具：GET /context/file-snippet
+## 6. 仓库文件列表工具：GET /context/repo-files
+
+### 作用
+
+返回当前 `repo_id` 已索引的文件清单。下游 agent 可以先调用该接口拿到全量文件路径，再按需调用 `/context/file-content` 对单文件运行 ruff、pylint、bandit 或自定义规则。
+
+### 请求参数
+
+| 参数 | 位置 | 类型 | 是否必填 | 说明 |
+| --- | --- | --- | --- | --- |
+| `repo_id` | Query | string | 是 | 当前仓库 ID |
+| `include_tests` | Query | boolean | 否 | 是否包含测试文件，默认 `true` |
+| `file_type` | Query | string | 否 | 按文件类型过滤，例如 `python` |
+
+### 请求示例
+
+```http
+GET /context/repo-files?repo_id=sample-repo&include_tests=true
+```
+
+### 返回字段
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `repo_id` | string | 当前仓库 ID |
+| `total` | integer | 返回文件数量 |
+| `files` | array | 文件对象列表 |
+| `files[].file_path` | string | 仓库内相对路径 |
+| `files[].file_type` | string | 文件类型 |
+| `files[].language` | string | 语言 |
+| `files[].line_count` | integer | 文件行数 |
+| `files[].is_test` | boolean | 是否测试文件 |
+
+### 返回示例
+
+```json
+{
+  "repo_id": "sample-repo",
+  "total": 2,
+  "files": [
+    {
+      "file_path": "app/api/auth.py",
+      "file_type": "python",
+      "language": "python",
+      "line_count": 13,
+      "is_test": false
+    }
+  ]
+}
+```
+
+---
+
+## 7. 源码片段工具：GET /context/file-snippet
 
 ### 作用
 
@@ -417,7 +474,56 @@ GET /context/file-snippet?repo_id=sample-repo&file_path=app/api/auth.py&start_li
 
 ---
 
-## 7. 符号详情工具：GET /context/node-detail
+## 8. 完整文件内容工具：GET /context/file-content
+
+### 作用
+
+读取仓库内某个文件的完整内容。适合下游 agent 对单文件运行静态检查工具，或者需要把完整文件交给更下游接口处理的场景。
+
+### 请求参数
+
+| 参数 | 位置 | 类型 | 是否必填 | 说明 |
+| --- | --- | --- | --- | --- |
+| `repo_id` | Query | string | 是 | 当前仓库 ID |
+| `file_path` | Query | string | 是 | 仓库内相对路径 |
+| `task_id` | Query | string | 建议必填 | 当前任务 ID，用于 usage 记录 |
+| `review_dimension` | Query | enum | 建议必填 | 当前评审维度，用于 usage 记录 |
+
+### 请求示例
+
+```http
+GET /context/file-content?repo_id=sample-repo&file_path=app/api/auth.py&task_id=task_route_post_login&review_dimension=security
+```
+
+### 返回字段
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `file_path` | string | 文件路径 |
+| `line_count` | integer | 文件总行数 |
+| `content` | string | 完整文件内容 |
+| `source` | string | 与 `content` 相同，兼容旧调用方 |
+
+### 返回示例
+
+```json
+{
+  "file_path": "app/api/auth.py",
+  "line_count": 13,
+  "content": "...完整文件内容...",
+  "source": "...完整文件内容..."
+}
+```
+
+### 约束
+
+- 只能读取仓库内相对路径。
+- `../../secret.txt` 这类路径穿越会被拒绝并返回 `400`。
+- 该接口会记录 `get_file_content` usage，方便覆盖率统计。
+
+---
+
+## 9. 符号详情工具：GET /context/node-detail
 
 ### 作用
 
@@ -470,7 +576,7 @@ GET /context/node-detail?repo_id=sample-repo&symbol_name=login&task_id=task_rout
 
 ---
 
-## 8. 调用关系工具：GET /context/callees 与 GET /context/callers
+## 10. 调用关系工具：GET /context/callees 与 GET /context/callers
 
 ### 作用
 
@@ -523,7 +629,7 @@ GET /context/callers?repo_id=sample-repo&symbol_name=authenticate&depth=1&task_i
 
 ---
 
-## 9. 下游任务反馈接口：POST /context/task-feedback
+## 11. 下游任务反馈接口：POST /context/task-feedback
 
 ### 作用
 
@@ -630,7 +736,7 @@ Content-Type: application/json
 
 ---
 
-## 10. Context Usage 自动记录
+## 12. Context Usage 自动记录
 
 `context_usage` 是上下文模块内部的自动记录机制，主要用于覆盖率统计和调试分析。
 
@@ -652,7 +758,7 @@ Content-Type: application/json
 
 ---
 
-## 11. 初始化与覆盖率接口
+## 13. 初始化与覆盖率接口
 
 ### POST /context/index
 
@@ -715,7 +821,7 @@ GET /demo/sample-repo/coverage
 
 ---
 
-## 12. Python 调用示例
+## 14. Python 调用示例
 
 下面示例展示下游 agent 如何获取任务包、扩展相关上下文，并提交任务反馈。
 
@@ -811,7 +917,7 @@ submit_feedback(
 
 ---
 
-## 13. 接入检查清单
+## 15. 接入检查清单
 
 下游接入时可以按下面清单验收：
 

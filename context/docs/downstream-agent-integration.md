@@ -201,6 +201,30 @@ GET /context/tasks/task_route_post_login/graph-slice?repo_id=sample-repo&depth=2
 
 ### 读取源码片段
 
+全量文件扫描场景（例如先拿文件列表，再逐个运行 ruff / pylint）：
+
+```http
+GET /context/repo-files?repo_id=sample-repo&include_tests=true
+```
+
+返回：
+
+```json
+{
+  "repo_id": "sample-repo",
+  "total": 2,
+  "files": [
+    {
+      "file_path": "app/api/auth.py",
+      "file_type": "python",
+      "language": "python",
+      "line_count": 13,
+      "is_test": false
+    }
+  ]
+}
+```
+
 ```http
 GET /context/file-snippet?repo_id=sample-repo&file_path=app/api/auth.py&start_line=1&end_line=80&task_id=task_route_post_login&review_dimension=security
 ```
@@ -221,6 +245,25 @@ GET /context/file-snippet?repo_id=sample-repo&file_path=app/api/auth.py&start_li
 - 只能读取仓库内路径。
 - `../../secret.txt` 这类路径穿越会被拒绝。
 - 不要一次请求过大范围源码。
+
+需要完整文件内容时使用：
+
+```http
+GET /context/file-content?repo_id=sample-repo&file_path=app/api/auth.py&task_id=task_route_post_login&review_dimension=security
+```
+
+返回：
+
+```json
+{
+  "file_path": "app/api/auth.py",
+  "line_count": 13,
+  "content": "...完整文件内容...",
+  "source": "...完整文件内容..."
+}
+```
+
+`/context/file-content` 同样只允许读取仓库内相对路径，并会记录 `get_file_content` usage，方便后续覆盖率统计。
 
 ### 获取符号详情
 
