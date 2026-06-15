@@ -43,3 +43,18 @@ requirement_consistency
 - `repo_id` 由 `POST /context/index` 调用方传入，后续所有接口必须使用同一个值。
 - `task_id` 来自 `GET /context/tasks` 返回的 `tasks[].task_id`。
 - 上下文工具调用和 `task-feedback` 应继续携带当前 `task_id`。
+
+## Current Interface Documentation Sync Rule
+
+Whenever API routes, parameters, response fields, enum values, or downstream calling flow change, update all interface documentation artifacts, including:
+
+- `docs/上下文工具接入文档_新版.docx`
+- `context/docs/context-api-reference.md`
+- `context/docs/downstream-agent-integration.md`
+- `context/docs/README-review-agent-context-tools.md`
+- `context/docs/api/README.md`
+- `context/docs/api/openapi.json`
+- `context/docs/api/postman_collection.json`
+- related interface test/parameter docs when examples or expected status codes change
+
+The Word document above is the current primary handoff document for downstream engineers and must not be skipped.
