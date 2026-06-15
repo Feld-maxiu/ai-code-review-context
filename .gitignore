@@ -5,6 +5,9 @@ __pycache__/
 *.py[cod]
 
 # Local agent/tooling state
+AGENTS.md
+.agent.md
+agent.md
 .agents/
 .claude/
 .codegraph/
@@ -16,3 +19,6 @@ tests/fixtures/fastapi-sqlalchemy-starter-main/
 
 # Development planning notes and prompts
 dev_docs/
+
+# Word temporary lock files
+~$*.docx

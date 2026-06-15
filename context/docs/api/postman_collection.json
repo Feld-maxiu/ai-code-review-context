@@ -1,0 +1,571 @@
+{
+  "info": {
+    "name": "AI Code Review Context API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "?? Agent ?????????? Postman Collection???? /context/index???????graph slice???????task feedback ??????"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "repo_id",
+      "value": "sample-repo"
+    },
+    {
+      "key": "repo_path",
+      "value": "tests/fixtures/sample_repo"
+    },
+    {
+      "key": "task_id",
+      "value": "task_route_post_login"
+    },
+    {
+      "key": "review_dimension",
+      "value": "security"
+    },
+    {
+      "key": "symbol_name",
+      "value": "login"
+    },
+    {
+      "key": "node_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "00 Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ],
+              "query": []
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 Index",
+      "item": [
+        {
+          "name": "Build Context Index",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/context/index",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "index"
+              ],
+              "query": []
+            },
+            "description": "????????? review_tasks??????????",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"repo_id\": \"{{repo_id}}\",\n  \"repo_path\": \"{{repo_path}}\",\n  \"db_path\": \".demo_data/{{repo_id}}.db\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Task Package",
+      "item": [
+        {
+          "name": "List Tasks By Review Dimension",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/context/tasks?repo_id={{repo_id}}&review_dimension={{review_dimension}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "repo_id",
+                  "value": "{{repo_id}}"
+                },
+                {
+                  "key": "review_dimension",
+                  "value": "{{review_dimension}}"
+                }
+              ]
+            },
+            "description": "按固定 review_dimension 枚举查询任务列表；从 tasks[].task_id 读取任务 ID 后再调用 task-package。"
+          }
+        },
+        {
+          "name": "Get Task Package",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/context/task-package/{{task_id}}?repo_id={{repo_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "task-package",
+                "{{task_id}}"
+              ],
+              "query": [
+                {
+                  "key": "repo_id",
+                  "value": "{{repo_id}}"
+                }
+              ]
+            },
+            "description": "????????? initial_context?available_tools ? context_policy?"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Graph Slice",
+      "item": [
+        {
+          "name": "Get Task Graph Slice",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/context/tasks/{{task_id}}/graph-slice?repo_id={{repo_id}}&depth=2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "tasks",
+                "{{task_id}}",
+                "graph-slice"
+              ],
+              "query": [
+                {
+                  "key": "repo_id",
+                  "value": "{{repo_id}}"
+                },
+                {
+                  "key": "depth",
+                  "value": "2"
+                }
+              ]
+            },
+            "description": "?? task-local graph slice?nodes/boundary_nodes ?? priority?risk_score?reason ????????"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Context Tools",
+      "item": [
+        {
+          "name": "Get Related Context",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/context/related-context",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "related-context"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"repo_id\": \"{{repo_id}}\",\n  \"task_id\": \"{{task_id}}\",\n  \"target_file\": \"app/api/auth.py\",\n  \"review_dimension\": \"{{review_dimension}}\",\n  \"tags\": [\n    \"api_entry\",\n    \"auth\"\n  ],\n  \"max_depth\": 1,\n  \"max_files\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get Repo Files",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/context/repo-files?repo_id={{repo_id}}&include_tests=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "repo-files"
+              ],
+              "query": [
+                {
+                  "key": "repo_id",
+                  "value": "{{repo_id}}"
+                },
+                {
+                  "key": "include_tests",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "List indexed repository files for downstream full-file scans."
+          }
+        },
+        {
+          "name": "Get File Snippet",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/context/file-snippet?repo_id={{repo_id}}&file_path=app/api/auth.py&start_line=1&end_line=80&task_id={{task_id}}&review_dimension={{review_dimension}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "file-snippet"
+              ],
+              "query": [
+                {
+                  "key": "repo_id",
+                  "value": "{{repo_id}}"
+                },
+                {
+                  "key": "file_path",
+                  "value": "app/api/auth.py"
+                },
+                {
+                  "key": "start_line",
+                  "value": "1"
+                },
+                {
+                  "key": "end_line",
+                  "value": "80"
+                },
+                {
+                  "key": "task_id",
+                  "value": "{{task_id}}"
+                },
+                {
+                  "key": "review_dimension",
+                  "value": "{{review_dimension}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Get File Content",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/context/file-content?repo_id={{repo_id}}&file_path=app/api/auth.py&task_id={{task_id}}&review_dimension={{review_dimension}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "file-content"
+              ],
+              "query": [
+                {
+                  "key": "repo_id",
+                  "value": "{{repo_id}}"
+                },
+                {
+                  "key": "file_path",
+                  "value": "app/api/auth.py"
+                },
+                {
+                  "key": "task_id",
+                  "value": "{{task_id}}"
+                },
+                {
+                  "key": "review_dimension",
+                  "value": "{{review_dimension}}"
+                }
+              ]
+            },
+            "description": "Read complete file content for downstream static analysis tools."
+          }
+        },
+        {
+          "name": "Get Node Detail by Symbol",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/context/node-detail?repo_id={{repo_id}}&symbol_name={{symbol_name}}&task_id={{task_id}}&review_dimension={{review_dimension}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "node-detail"
+              ],
+              "query": [
+                {
+                  "key": "repo_id",
+                  "value": "{{repo_id}}"
+                },
+                {
+                  "key": "symbol_name",
+                  "value": "{{symbol_name}}"
+                },
+                {
+                  "key": "task_id",
+                  "value": "{{task_id}}"
+                },
+                {
+                  "key": "review_dimension",
+                  "value": "{{review_dimension}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Get Callees",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/context/callees?repo_id={{repo_id}}&symbol_name={{symbol_name}}&depth=1&task_id={{task_id}}&review_dimension={{review_dimension}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "callees"
+              ],
+              "query": [
+                {
+                  "key": "repo_id",
+                  "value": "{{repo_id}}"
+                },
+                {
+                  "key": "symbol_name",
+                  "value": "{{symbol_name}}"
+                },
+                {
+                  "key": "depth",
+                  "value": "1"
+                },
+                {
+                  "key": "task_id",
+                  "value": "{{task_id}}"
+                },
+                {
+                  "key": "review_dimension",
+                  "value": "{{review_dimension}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Get Callers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/context/callers?repo_id={{repo_id}}&symbol_name=authenticate&depth=1&task_id={{task_id}}&review_dimension={{review_dimension}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "callers"
+              ],
+              "query": [
+                {
+                  "key": "repo_id",
+                  "value": "{{repo_id}}"
+                },
+                {
+                  "key": "symbol_name",
+                  "value": "authenticate"
+                },
+                {
+                  "key": "depth",
+                  "value": "1"
+                },
+                {
+                  "key": "task_id",
+                  "value": "{{task_id}}"
+                },
+                {
+                  "key": "review_dimension",
+                  "value": "{{review_dimension}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Feedback",
+      "item": [
+        {
+          "name": "Submit Completed Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/context/task-feedback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "task-feedback"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"repo_id\": \"{{repo_id}}\",\n  \"task_id\": \"{{task_id}}\",\n  \"agent\": \"security-review-agent\",\n  \"status\": \"completed\",\n  \"context_sufficient\": true,\n  \"feedback_type\": \"task_status\",\n  \"message\": \"??????????????????\",\n  \"need_more_context\": false,\n  \"requested_context\": [],\n  \"downstream_result_ref\": \"review-result-0001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Submit Blocked Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/context/task-feedback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "context",
+                "task-feedback"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"repo_id\": \"{{repo_id}}\",\n  \"task_id\": \"{{task_id}}\",\n  \"agent\": \"security-review-agent\",\n  \"status\": \"blocked\",\n  \"context_sufficient\": false,\n  \"feedback_type\": \"context_request\",\n  \"message\": \"????????????????????????????\",\n  \"need_more_context\": true,\n  \"requested_context\": [\n    {\n      \"type\": \"callers\",\n      \"symbol_name\": \"authenticate\",\n      \"depth\": 2\n    }\n  ],\n  \"downstream_result_ref\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Demo Debug",
+      "item": [
+        {
+          "name": "Demo Tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/demo/{{repo_id}}/tasks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "demo",
+                "{{repo_id}}",
+                "tasks"
+              ],
+              "query": []
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Demo Coverage",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/demo/{{repo_id}}/coverage",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "demo",
+                "{{repo_id}}",
+                "coverage"
+              ],
+              "query": []
+            },
+            "description": ""
+          }
+        }
+      ]
+    }
+  ]
+}

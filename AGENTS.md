@@ -46,15 +46,20 @@
 ## 推荐目录结构
 
 ```text
-repo_context/
-├── ingest/
-├── parser/
-├── index/
-├── store/
-├── task/
-├── tools/
-├── service/
-└── api/
+context/
+├── repo_context/
+│   ├── ingest/
+│   ├── parser/
+│   ├── index/
+│   ├── store/
+│   ├── task/
+│   ├── tools/
+│   ├── service/
+│   └── api/
+└── docs/
+
+agent/
+└── review_agent/
 
 tests/
 ├── fixtures/
@@ -62,10 +67,12 @@ tests/
 ```
 
 说明：
-- `repo_context/` 只存放上下文处理模块代码；
+- `context/repo_context/` 只存放上下文处理模块代码；
+- `context/docs/` 存放上下文模块对外接口、联调和使用说明；
+- `agent/review_agent/` 存放下游 agent 调用模块代码；
 - `tests/` 存放测试代码；
-- `dev_docs/`、`docs/`、`tasks/`、`prompts/` 属于开发说明材料，不属于运行时模块代码；
-- 后期接入总项目时，通常只需要交付 `repo_context/`、必要测试、依赖文件和使用说明，不需要交付开发提示词文件。
+- `dev_docs/`、`tasks/`、`prompts/` 属于开发说明材料，不属于运行时模块代码；
+- 后期接入总项目时，通常只需要交付 `context/repo_context/`、`agent/review_agent/`、必要测试、依赖文件和使用说明，不需要交付开发提示词文件。
 
 ## Git 分支工作规则
 
@@ -135,7 +142,7 @@ git checkout <stage-branch-name>
 - zip 解压必须防止路径穿越；
 - 文件扫描必须跳过 `.git`、`.venv`、`venv`、`__pycache__`、`dist`、`build`、`site-packages`、`node_modules` 等目录；
 - 后续阶段需要的能力可以预留 TODO 或接口占位，但不要提前完整实现；
-- 除非用户明确要求，不要修改 `dev_docs/`、`docs/`、`tasks/`、`prompts/` 下的开发说明文件。
+- 除非用户明确要求，不要修改 `dev_docs/`、`context/docs/`、`tasks/`、`prompts/` 下的开发说明文件。
 
 ## 测试要求
 
