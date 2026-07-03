@@ -20,7 +20,8 @@ class FuzzerAgent:
         seed_dir: Optional[str] = None,
         output_dir: Optional[str] = None,
         timeout: int = 300,
-        max_seeds: int = 50
+        max_seeds: int = 50,
+        allow_code_execution: bool = False,
     ):
         self.llm_client = llm_client
         self.semantic_memory = semantic_memory
@@ -30,6 +31,7 @@ class FuzzerAgent:
         self.output_dir = output_dir
         self.timeout = timeout
         self.max_seeds = max_seeds
+        self.allow_code_execution = allow_code_execution
 
     def verify(
         self,
@@ -211,6 +213,16 @@ class FuzzerAgent:
         return spec
 
     def _execute_seed_generation(self, script: str) -> List[bytes]:
+        """执行 LLM 生成的种子生成脚本。
+
+        安全约束：
+        - 默认 allow_code_execution=False 时不执行 LLM 代码，返回兜底种子；
+        - 即使开启执行，也只使用最小化环境变量，不继承 os.environ。
+        """
+
+        if not self.allow_code_execution:
+            return []
+
         seeds = []
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
@@ -218,7 +230,12 @@ class FuzzerAgent:
                 with open(script_path, "w", encoding="utf-8") as f:
                     f.write(script)
 
-                env = os.environ.copy()
+                # 使用最小化安全环境，不继承 os.environ（避免泄露 API key 等敏感信息）
+                env: Dict[str, str] = {}
+                # 仅传递 Python 运行时必需的路径和环境
+                env["SYSTEMROOT"] = os.environ.get("SYSTEMROOT", "C:\\Windows")
+                if "PATH" in os.environ:
+                    env["PATH"] = os.environ["PATH"]
                 env["PYTHONPATH"] = tmpdir
 
                 result = subprocess.run(

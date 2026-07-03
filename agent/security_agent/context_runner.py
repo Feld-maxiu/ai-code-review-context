@@ -62,7 +62,13 @@ class ContextAgentRunner:
                     context_depth=context_depth,
                     max_context_files=max_context_files,
                 )
-                completed.append({"task_id": task_id, "output_file": output_file, "result": result})
+                # PipelineResult 是 dataclass，不可直接 json.dump，转为 summary dict
+                result_dict = result.summary if hasattr(result, "summary") else vars(result)
+                completed.append({
+                    "task_id": task_id,
+                    "output_file": output_file,
+                    "result": result_dict,
+                })
             except Exception as exc:
                 failed.append({"task_id": task_id, "error": str(exc)})
 
