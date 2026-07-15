@@ -21,7 +21,8 @@ class LLMClient:
         temperature: float = 0.1,
         max_tokens: int = 4096,
         max_retries: int = 3,
-        retry_delay: float = 2.0
+        retry_delay: float = 2.0,
+        timeout: float = 30.0,
     ):
         self.api_key = api_key
         self.api_base = api_base
@@ -30,6 +31,7 @@ class LLMClient:
         self.max_tokens = max_tokens
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.timeout = timeout
         self._client = None
 
     def _ensure_client(self):
@@ -38,7 +40,8 @@ class LLMClient:
                 from openai import OpenAI
                 self._client = OpenAI(
                     api_key=self.api_key,
-                    base_url=self.api_base
+                    base_url=self.api_base,
+                    timeout=self.timeout,
                 )
             except ImportError:
                 raise ImportError(
@@ -87,6 +90,9 @@ class LLMClient:
                 )
             except Exception as e:
                 last_error = e
+                # 如果是超时错误，不再重试，避免阻塞过久
+                if "timeout" in str(e).lower() or "timed out" in str(e).lower():
+                    break
                 if attempt < self.max_retries - 1:
                     time.sleep(self.retry_delay * (2 ** attempt))
                 continue

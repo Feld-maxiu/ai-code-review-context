@@ -1,6 +1,7 @@
 import os
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from .main import PipelineTimeoutError
 from .models import (
     CFGNode,
     CodeDiff,
@@ -167,6 +168,20 @@ class ContextAgentRunner:
                 downstream_result_ref=output_file,
             )
             return result
+        except PipelineTimeoutError as exc:
+            # 流水线整体超时：明确标记为 agent 自身超时，不需要更多上下文
+            self._post_feedback(
+                repo_id=repo_id,
+                task_id=task_id,
+                status="failed",
+                context_sufficient=True,
+                feedback_type="agent_timeout",
+                message=str(exc),
+                need_more_context=False,
+                requested_context=[],
+                downstream_result_ref=None,
+            )
+            raise
         except Exception as exc:
             if not self._last_call_was_feedback():
                 self._post_feedback(

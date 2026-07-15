@@ -20,6 +20,11 @@ from .knowledge.cwe_tree import CWETree
 from .utils.llm_client import LLMClient
 from .utils.cfg_generator import CFGGenerator
 
+
+class PipelineTimeoutError(TimeoutError):
+    """安全 agent 流水线整体超时"""
+    pass
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
@@ -54,7 +59,9 @@ class SecurityAgentOrchestrator:
         rules_file: Optional[str] = None,
         cwe_file: Optional[str] = None,
         temperature: float = 0.1,
-        enable_fuzzing: bool = True
+        enable_fuzzing: bool = True,
+        llm_timeout: float = 30.0,
+        pipeline_timeout: float = 120.0,
     ):
         self.enable_fuzzing = enable_fuzzing
 
@@ -62,8 +69,10 @@ class SecurityAgentOrchestrator:
             api_key=api_key,
             api_base=api_base,
             model=model,
-            temperature=temperature
+            temperature=temperature,
+            timeout=llm_timeout,
         )
+        self.pipeline_timeout = pipeline_timeout
 
         self.semantic_memory = SemanticMemory(llm_client=self.llm_client)
         self.working_memory = WorkingMemory()
@@ -157,6 +166,16 @@ class SecurityAgentOrchestrator:
         result.total_files = len(context.diffs)
         result.total_functions = sum(len(cfg.nodes) > 0 for cfg in context.cfgs)
 
+        def _check_timeout(stage_name: str):
+            elapsed = time.time() - start_time
+            logger.info(f"[{stage_name}] 已耗时 {elapsed:.2f}s / 限 {self.pipeline_timeout:.2f}s")
+            if elapsed > self.pipeline_timeout:
+                raise PipelineTimeoutError(
+                    f"安全 agent 流水线超时（{elapsed:.2f}s > {self.pipeline_timeout:.2f}s），"
+                    f"阻塞在 {stage_name} 阶段"
+                )
+
+        _check_timeout("pipeline-start")
         stage_start = time.time()
         detector_reports = self.detector.analyze(context)
         stage_times["detector"] = time.time() - stage_start
@@ -164,6 +183,7 @@ class SecurityAgentOrchestrator:
         logger.info(f"[Step 1] 检测器(ad)完成: 发现 {result.detector_findings} 个潜在漏洞 "
                      f"({stage_times['detector']:.2f}s)")
 
+        _check_timeout("detector")
         stage_start = time.time()
         verified_reports = self.verifier.verify(detector_reports, context)
         stage_times["verifier"] = time.time() - stage_start
@@ -174,6 +194,7 @@ class SecurityAgentOrchestrator:
                      f"保留 {result.verifier_confirmed} 个高可疑漏洞 "
                      f"({stage_times['verifier']:.2f}s)")
 
+        _check_timeout("verifier")
         stage_start = time.time()
         if self.enable_fuzzing:
             suspicious = [r for r in static_kept_reports if r.confidence >= 0.3]

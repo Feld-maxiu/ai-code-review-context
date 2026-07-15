@@ -70,9 +70,24 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=3,
         help="相关上下文最大文件数，默认 3",
     )
+    parser.add_argument(
+        "--llm-timeout",
+        type=float,
+        default=30.0,
+        help="单次 LLM 调用超时（秒），默认 30",
+    )
+    parser.add_argument(
+        "--pipeline-timeout",
+        type=float,
+        default=120.0,
+        help="单个任务流水线整体超时（秒），默认 120",
+    )
     args = parser.parse_args(argv)
 
-    client = ContextServiceClient(base_url=args.context_url)
+    client = ContextServiceClient(
+        base_url=args.context_url,
+        timeout=30.0,
+    )
     logger.info(f"开始为 repo_id={args.repo_id} 构建索引，路径={args.repo_path}")
     index_result = client.build_index(
         repo_id=args.repo_id,
@@ -87,6 +102,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         api_base=args.api_base,
         model=args.model,
         enable_fuzzing=not args.no_fuzzing,
+        llm_timeout=args.llm_timeout,
+        pipeline_timeout=args.pipeline_timeout,
     )
     runner = ContextAgentRunner(
         context_client=client,
