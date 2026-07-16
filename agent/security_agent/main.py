@@ -62,6 +62,7 @@ class SecurityAgentOrchestrator:
         enable_fuzzing: bool = True,
         llm_timeout: float = 30.0,
         pipeline_timeout: float = 120.0,
+        fuzzer_timeout: float = 60.0,
     ):
         self.enable_fuzzing = enable_fuzzing
 
@@ -102,7 +103,7 @@ class SecurityAgentOrchestrator:
             semantic_memory=self.semantic_memory,
             working_memory=self.working_memory,
             afl_path=afl_path,
-            timeout=300
+            timeout=fuzzer_timeout
         )
 
     def _init_memory(self):

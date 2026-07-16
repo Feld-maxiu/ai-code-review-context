@@ -82,11 +82,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=120.0,
         help="单个任务流水线整体超时（秒），默认 120",
     )
+    parser.add_argument(
+        "--fuzzer-timeout",
+        type=float,
+        default=60.0,
+        help="fuzzer 单任务超时（秒），默认 60",
+    )
     args = parser.parse_args(argv)
 
     client = ContextServiceClient(
         base_url=args.context_url,
-        timeout=30.0,
+        timeout=60.0,
     )
     logger.info(f"开始为 repo_id={args.repo_id} 构建索引，路径={args.repo_path}")
     index_result = client.build_index(
@@ -104,6 +110,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         enable_fuzzing=not args.no_fuzzing,
         llm_timeout=args.llm_timeout,
         pipeline_timeout=args.pipeline_timeout,
+        fuzzer_timeout=args.fuzzer_timeout,
     )
     runner = ContextAgentRunner(
         context_client=client,
