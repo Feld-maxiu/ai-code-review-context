@@ -19,21 +19,25 @@
 
 ```text
 agent/security_agent/
-├── cli.py                 # 命令行入口
-├── context_client.py      # 上下文服务 HTTP 客户端
-├── context_runner.py      # 任务领取与执行循环
-├── main.py                # SecurityAgentOrchestrator 流水线编排
-├── models.py              # VulnerabilityReport / ControlFlowGraph 等数据模型
+├── cli.py                       # 命令行入口
+├── context_client.py            # 上下文服务 HTTP 客户端
+├── context_runner.py            # 任务领取与执行循环
+├── main.py                      # SecurityAgentOrchestrator 流水线编排
+├── models.py                    # VulnerabilityReport / ControlFlowGraph 等数据模型
 ├── agents/
-│   ├── detector.py        # 静态漏洞检测
-│   ├── verifier.py        # 漏洞验证与误报过滤
-│   └── fuzzer.py          # 动态模糊测试（默认不执行 LLM 生成的脚本）
+│   ├── detector.py              # 静态漏洞检测
+│   ├── verifier.py              # 漏洞验证与误报过滤
+│   └── fuzzer.py                # 动态模糊测试（默认不执行 LLM 生成的脚本）
 ├── knowledge/
-│   ├── cwe_tree.py        # CWE 知识树
-│   └── sast_rules.py      # SAST 规则
-└── memory/
-    ├── semantic_memory.py # 语义记忆
-    └── working_memory.py  # 工作记忆
+│   ├── cwe_tree.py              # CWE 知识树
+│   └── sast_rules.py            # SAST 规则
+├── memory/
+│   ├── semantic_memory.py       # 语义记忆
+│   └── working_memory.py        # 工作记忆
+└── utils/
+    ├── cfg_generator.py         # 基于 clang 的 C/C++ CFG 生成器
+    ├── python_cfg_generator.py  # 基于 Python ast 的 CFG 生成器
+    └── llm_client.py            # LLM 客户端
 ```
 
 ---
@@ -82,9 +86,13 @@ python -m agent.security_agent.cli \
 | `--api-base` | 否 | OpenAI 官方 | LLM API Base |
 | `--model` | 否 | `gpt-4` | LLM 模型名 |
 | `--no-fuzzing` | 否 | False | 禁用动态模糊测试 |
-| `--target-binary` | 否 | None | 可选目标二进制路径，用于 fuzzer |
+| `--target-binary` | 否 | None | 可选目标二进制路径，用于 C/C++ fuzzer（afl-fuzz） |
+| `--target-script` | 否 | None | 可选目标 Python 脚本路径，用于 Python 动态验证 |
 | `--context-depth` | 否 | 2 | 任务局部图深度 |
 | `--max-context-files` | 否 | 3 | 相关上下文最大文件数 |
+| `--llm-timeout` | 否 | 30.0 | 单次 LLM 调用超时（秒） |
+| `--pipeline-timeout` | 否 | 120.0 | 单个任务流水线整体超时（秒） |
+| `--fuzzer-timeout` | 否 | 60.0 | fuzzer 单任务超时（秒） |
 
 #### 最小可运行示例
 
@@ -140,17 +148,29 @@ security_results/
 
 ---
 
-## 6. 测试
+## 6. Python 项目支持说明
+
+本安全 agent 已支持 Python 代码评审：
+
+- **CFG 生成**：根据文件后缀自动选择生成器
+  - `.py` 文件使用 `PythonCFGGenerator`（基于 Python 标准库 `ast`）
+  - `.c/.cpp/.cc/.h/.hpp` 文件保留使用 `CFGGenerator`（基于 clang）
+- **动态验证**：
+  - C/C++ 项目：使用 `--target-binary` 配合 `afl-fuzz`
+  - Python 项目：使用 `--target-script` 指定入口脚本，fuzzer 会逐种子执行 `python <script>`，通过非 0 退出码或超时识别潜在问题
+- **默认不执行 LLM 代码**：即使使用 `--target-script`，也需要显式设置 `allow_code_execution=True` 才会真正执行
+
+## 7. 测试
 
 运行 security agent 相关测试：
 
 ```bash
-python -m pytest tests/test_context_client.py tests/test_context_runner.py tests/test_pipeline_resilience.py -v
+python -m pytest tests/test_context_client.py tests/test_context_runner.py tests/test_pipeline_resilience.py tests/test_python_cfg.py -v
 ```
 
 ---
 
-## 7. 常见问题
+## 8. 常见问题
 
 **Q：上下文服务没启动会怎样？**
 
@@ -163,3 +183,7 @@ A：安全 agent 应固定使用 `security`。其他值会领取到非安全任�
 **Q：为什么默认禁用 LLM 代码执行？**
 
 A：LLM 生成的代码存在不可控风险，默认关闭； fuzzer 仍可基于静态规则生成种子并运行 AFL/QEMU 等受控模糊测试。
+
+**Q：security agent 能检测 Python 吗？**
+
+A：可以。Python 文件会自动使用基于 `ast` 的 `PythonCFGGenerator` 生成控制流图，动态验证可通过 `--target-script` 指定 Python 入口脚本。C/C++ 文件仍保留使用 clang + afl-fuzz。

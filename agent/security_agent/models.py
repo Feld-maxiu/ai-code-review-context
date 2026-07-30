@@ -50,6 +50,10 @@ class CFGNode:
     predecessors: List[int] = field(default_factory=list)
     is_entry: bool = False
     is_conditional: bool = False
+    # 函数调用点信息，每项: {callee, args_text, arg_vars, line, assignment_target}
+    calls: List[Dict[str, Any]] = field(default_factory=list)
+    # 赋值信息，每项: {target, source_vars, source_text, line}
+    assignments: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -66,7 +70,8 @@ class ControlFlowGraph:
             "nodes": [{"id": n.id, "label": n.label, "code": n.code,
                        "line_start": n.line_start, "line_end": n.line_end,
                        "successors": n.successors, "predecessors": n.predecessors,
-                       "is_entry": n.is_entry, "is_conditional": n.is_conditional}
+                       "is_entry": n.is_entry, "is_conditional": n.is_conditional,
+                       "calls": n.calls, "assignments": n.assignments}
                       for n in self.nodes],
             "edges": self.edges
         }
