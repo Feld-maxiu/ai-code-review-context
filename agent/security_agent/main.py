@@ -381,11 +381,17 @@ class SecurityAgentOrchestrator:
         risk_score = self._calculate_risk_score(findings)
         highest_severity = self._highest_severity(findings)
         output = {
-            "task_id": metadata.get("task_id"),
-            "repo_id": metadata.get("repo_id"),
+            # 统一外层格式
             "agent": metadata.get("agent_name", "security-agent"),
-            "review_dimension": metadata.get("review_dimension", "security"),
+            "dimension": metadata.get("review_dimension", metadata.get("dimension", "security")),
+            "scan_id": metadata.get("scan_id", ""),
+            "snapshot_id": metadata.get("snapshot_id", ""),
+            "task_id": metadata.get("task_id"),
             "status": metadata.get("status", "completed"),
+            "findings": findings,
+            "message": metadata.get("message"),
+            # 扩展字段（security agent 特有）
+            "repo_id": metadata.get("repo_id"),
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "summary": {
                 "total_findings": len(findings),
@@ -401,7 +407,6 @@ class SecurityAgentOrchestrator:
                 },
                 "pipeline": result.summary.get("pipeline", "ad → av → af"),
             },
-            "findings": findings,
             "recommendations": self._build_recommendations(findings),
             "artifacts": {
                 "result_file": output_file,

@@ -63,9 +63,43 @@ Preprocess(CFG) → Detector(ad) → Verifier(av) → Fuzzer(af, 可选) → Exp
 
 ## 5. 输出
 
+### 5.1 输出文件
+
 - `security_results/task_{task_id}.json`：findings 列表 + summary + recommendations + `block_merge`
 - `.sarif.json`（`sarif_output=True` 时）：SARIF 2.1.0 报告
 - `run_summary.json`：本次运行汇总
+
+### 5.2 统一外层格式（对接上层调度）
+
+每个任务输出 JSON 包含以下强制字段：
+
+```json
+{
+  "agent": "security-agent",
+  "dimension": "security",
+  "scan_id": "xxx",
+  "snapshot_id": "xxx",
+  "task_id": "task_xxx",
+  "status": "completed",
+  "findings": [{...}],
+  "message": null
+}
+```
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `agent` | string | 固定 `"security-agent"` |
+| `dimension` | string | 评审维度，security agent 固定 `"security"` |
+| `scan_id` | string | 扫描批次 ID，从任务包透传，无则为 `""` |
+| `snapshot_id` | string | 快照 ID，从任务包透传，无则为 `""` |
+| `task_id` | string | 任务 ID |
+| `status` | string | `"completed"` / `"failed"` / `"blocked"` |
+| `findings` | array | 漏洞列表 |
+| `message` | string\|null | 供上层展示的附加信息，正常为 `null` |
+
+扩展字段：`repo_id`、`timestamp`、`summary`、`recommendations`、`artifacts`、`block_merge`。
+
+### 5.3 Finding 字段
 
 每个 finding 字段：`cwe_id / cwe_name / severity / confidence / location / code_snippet / evidence.runtime_validation / remediation`。
 

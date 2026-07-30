@@ -209,6 +209,12 @@ class PipelineResilienceTests(unittest.TestCase):
         self.assertEqual(exported["task_id"], "task_route_post_login")
         self.assertEqual(exported["agent"], "security-agent")
         self.assertEqual(exported["status"], "completed")
+        # 统一外层格式字段
+        self.assertIn("dimension", exported)
+        self.assertIn("scan_id", exported)
+        self.assertIn("snapshot_id", exported)
+        self.assertIn("findings", exported)
+        self.assertIn("message", exported)
         self.assertEqual(exported["summary"]["total_findings"], 1)
         self.assertEqual(exported["findings"][0]["cwe_id"], "CWE-89")
         self.assertIn("artifacts", exported)

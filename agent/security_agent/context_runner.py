@@ -150,9 +150,13 @@ class ContextAgentRunner:
                     "task_id": task_id,
                     "repo_id": repo_id,
                     "review_dimension": review_dimension,
+                    "dimension": review_dimension,
                     "agent_name": agent_name,
                     "security_config": security_config,
                     "status": "completed",
+                    "scan_id": task_package.get("scan_id", ""),
+                    "snapshot_id": task_package.get("snapshot_id", ""),
+                    "message": None,
                     "context": context,
                 },
             )
