@@ -90,18 +90,36 @@ Preprocess(CFG) → Detector(ad) → Verifier(av) → Fuzzer(af, 可选) → Exp
 |---|---|---|
 | `agent` | string | 固定 `"security-agent"` |
 | `dimension` | string | 评审维度，security agent 固定 `"security"` |
-| `scan_id` | string | 扫描批次 ID，从任务包透传，无则为 `""` |
-| `snapshot_id` | string | 快照 ID，从任务包透传，无则为 `""` |
+| `scan_id` | string\|null | 扫描批次 ID，从任务包透传，无则为 `null` |
+| `snapshot_id` | string\|null | 快照 ID，从任务包透传，无则为 `null` |
 | `task_id` | string | 任务 ID |
-| `status` | string | `"completed"` / `"failed"` / `"blocked"` |
+| `status` | string | `"completed"` / `"failed"` / `"blocked"` / `"partial"` |
 | `findings` | array | 漏洞列表 |
-| `message` | string\|null | 供上层展示的附加信息，正常为 `null` |
+| `message` | string\|object\|null | 正常为 `null`；`blocked` 时可返回结构化对象（含 `type`、`detail`、`requested_context` 等） |
 
-扩展字段：`repo_id`、`timestamp`、`summary`、`recommendations`、`artifacts`、`block_merge`。
+> `scan_id` / `snapshot_id`：从任务包透传，任务包未提供时为 `null`（不允许空字符串，保证快照可追溯）。
+> `status` 新增 `"partial"`：当部分子任务完成、部分失败时使用。
 
-### 5.3 Finding 字段
+### 5.3 Finding 字段（统一结构）
 
-每个 finding 字段：`cwe_id / cwe_name / severity / confidence / location / code_snippet / evidence.runtime_validation / remediation`。
+每个 finding 使用以下统一字段：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `local_id` | string | 本地编号，如 `"SEC-001"` |
+| `category` | string | 漏洞分类，如 `"CWE-89"` |
+| `severity` | string | `"critical"` / `"high"` / `"medium"` / `"low"` |
+| `confidence` | float | 置信度 0.0～1.0 |
+| `title` | string | 漏洞标题，如 `"SQL注入"` |
+| `description` | string | 漏洞描述 |
+| `location` | object | `{file, line_start, line_end, symbol}` |
+| `security_standard` | string | 参考链接，如 `https://cwe.mitre.org/...` |
+| `verification` | object | `{status, input, stack_trace, coverage}` |
+| `evidence` | array | 证据列表，每项含 `{type, content}` |
+| `suggestion` | string | 修复建议 |
+| `requires_human_review` | bool | 是否需要人工复核 |
+
+> 旧字段映射：`cwe_id` → `category`，`cwe_name` → `title`，`code_snippet` → `evidence[]` 一项，`evidence.runtime_validation` → `verification`，`remediation.suggestion` → `suggestion`，`remediation.reference` → `security_standard`。
 
 ---
 

@@ -375,7 +375,7 @@ class SecurityAgentOrchestrator:
             severity = str(finding["severity"]).lower()
             if severity in severity_counts:
                 severity_counts[severity] += 1
-            cwe_id = str(finding["cwe_id"])
+            cwe_id = str(finding["category"])
             by_cwe[cwe_id] = by_cwe.get(cwe_id, 0) + 1
 
         risk_score = self._calculate_risk_score(findings)
@@ -384,8 +384,8 @@ class SecurityAgentOrchestrator:
             # 统一外层格式
             "agent": metadata.get("agent_name", "security-agent"),
             "dimension": metadata.get("review_dimension", metadata.get("dimension", "security")),
-            "scan_id": metadata.get("scan_id", ""),
-            "snapshot_id": metadata.get("snapshot_id", ""),
+            "scan_id": metadata.get("scan_id"),
+            "snapshot_id": metadata.get("snapshot_id"),
             "task_id": metadata.get("task_id"),
             "status": metadata.get("status", "completed"),
             "findings": findings,
@@ -401,9 +401,9 @@ class SecurityAgentOrchestrator:
                 "risk_score": risk_score,
                 "dynamic_validation": {
                     "enabled": bool(security_config.get("enable_dynamic_validation", False)),
-                    "confirmed": len([f for f in findings if f["evidence"]["runtime_validation"]["status"] == "confirmed"]),
-                    "suspicious": len([f for f in findings if f["evidence"]["runtime_validation"]["status"] == "suspicious"]),
-                    "unverified": len([f for f in findings if f["evidence"]["runtime_validation"]["status"] == "unverified"]),
+                    "confirmed": len([f for f in findings if f["verification"]["status"] == "confirmed"]),
+                    "suspicious": len([f for f in findings if f["verification"]["status"] == "suspicious"]),
+                    "unverified": len([f for f in findings if f["verification"]["status"] == "unverified"]),
                 },
                 "pipeline": result.summary.get("pipeline", "ad → av → af"),
             },
@@ -429,34 +429,62 @@ class SecurityAgentOrchestrator:
             if mitigations:
                 suggestion = str(mitigations[0])
             reference = f"https://cwe.mitre.org/data/definitions/{report.cwe_id.split('-')[-1]}.html" if report.cwe_id.startswith("CWE-") else ""
-            findings.append({
-                "id": f"SEC-{index:03d}",
-                "cwe_id": report.cwe_id,
-                "cwe_name": report.cwe_name,
+            # 构建统一 finding 结构
+            finding = {
+                "local_id": f"SEC-{index:03d}",
+                "category": report.cwe_id,
                 "severity": report.severity.lower(),
                 "confidence": round(float(report.confidence), 2),
+                "title": report.cwe_name or report.cwe_id,
+                "description": report.description,
                 "location": {
                     "file": report.file_path,
                     "line_start": report.line_start,
                     "line_end": report.line_end,
                     "symbol": self._infer_symbol_name(report, context),
                 },
-                "code_snippet": report.code_snippet,
-                "description": report.description,
-                "evidence": {
-                    "runtime_validation": {
-                        "status": report.runtime_status or "unverified",
-                        "input": report.runtime_input,
-                        "stack_trace": report.stack_trace,
-                        "coverage": report.coverage,
-                    }
+                "security_standard": reference,
+                "verification": {
+                    "status": report.runtime_status or "unverified",
+                    "input": report.runtime_input,
+                    "stack_trace": report.stack_trace,
+                    "coverage": report.coverage,
                 },
-                "remediation": {
-                    "suggestion": suggestion,
-                    "reference": reference,
-                },
-            })
+                "evidence": [],
+                "suggestion": suggestion,
+                "requires_human_review": self._requires_human_review(report),
+            }
+            # 代码片段作为第一条证据
+            if report.code_snippet:
+                finding["evidence"].append({
+                    "type": "code_snippet",
+                    "content": report.code_snippet,
+                    "line_start": report.line_start,
+                    "line_end": report.line_end,
+                })
+            # 运行时验证信息作为证据
+            if report.runtime_input:
+                finding["evidence"].append({
+                    "type": "runtime_input",
+                    "content": str(report.runtime_input),
+                })
+            if report.stack_trace:
+                finding["evidence"].append({
+                    "type": "stack_trace",
+                    "content": report.stack_trace,
+                })
+            findings.append(finding)
         return findings
+
+    def _requires_human_review(self, report: VulnerabilityReport) -> bool:
+        """判断是否需要人工复核：低置信度或 medium 及以下的问题"""
+        severity = str(report.severity).lower()
+        confidence = float(report.confidence)
+        if confidence < 0.5:
+            return True
+        if severity in ("medium", "low"):
+            return True
+        return False
 
     def _infer_symbol_name(
         self,
@@ -499,8 +527,8 @@ class SecurityAgentOrchestrator:
         seen = set()
         for finding in findings:
             severity = str(finding["severity"]).lower()
-            cwe_name = finding["cwe_name"]
-            suggestion = finding["remediation"]["suggestion"]
+            cwe_name = finding["title"]
+            suggestion = finding["suggestion"]
             if severity in ("critical", "high"):
                 text = f"优先修复 {cwe_name} 风险。"
                 if text not in seen:
@@ -515,7 +543,7 @@ class SecurityAgentOrchestrator:
         for finding in findings:
             severity = str(finding["severity"]).lower()
             confidence = float(finding.get("confidence", 0.0))
-            runtime_status = finding["evidence"]["runtime_validation"]["status"]
+            runtime_status = finding["verification"]["status"]
             if severity == "critical" and confidence >= 0.8:
                 return True
             if severity == "high" and runtime_status == "confirmed":
@@ -534,14 +562,14 @@ class SecurityAgentOrchestrator:
         results = []
         seen_rules = set()
         for finding in findings:
-            rule_id = finding["cwe_id"]
+            rule_id = finding["category"]
             if rule_id not in seen_rules:
                 seen_rules.add(rule_id)
                 rules.append({
                     "id": rule_id,
-                    "name": finding["cwe_name"],
+                    "name": finding["title"],
                     "shortDescription": {"text": finding["description"][:120]},
-                    "helpUri": finding["remediation"]["reference"],
+                    "helpUri": finding["security_standard"],
                 })
             results.append({
                 "ruleId": rule_id,
